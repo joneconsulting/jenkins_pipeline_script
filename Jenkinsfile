@@ -1,46 +1,33 @@
 pipeline {
     agent any
-    stages {
-        stage('Compile') {
-            steps {
-                echo "Compiled successfully!";
-            }
-        }
-
-        stage('JUint') {
-            steps {
-                echo "JUint passed successfully!";
-            }
-        }
-
-        stage('Code Analysis') {
-            steps {
-                echo "Code Analysis completed successfully!";
-            }
-        }
-
-        stage('Deploy') {
-            steps {
-                echo "Deployed successfully!";
-            }
-        }
+    tools {
+        maven 'maven3.8.2'
     }
-    
-    post {
-        always {
-            echo 'This will always run'
+    stages {
+        stage('github clone') {
+            steps {
+                git 'https://github.com/joneconsulting/one-apigate.git'
+            }
         }
-        success {
-            echo 'This will run when the run finished successfully'
+        stage('build') {
+            steps {
+                sh '''
+                    echo build start
+                    mvn clean compile package -DskipTests=true
+                '''
+                
+     //         sh 'mvn clean compile package -DskipTests=true'
+            }
         }
-        failure {
-            echo 'This will run if failed'
+        stage('deploy') {
+            steps {
+              deploy adapters: [tomcat9(credentialsId: 'deployer_user', path: '', url: 'http://192.168.0.8:8080/')], contextPath: null, war: '**/*.war'
+            }
         }
-        unstable {
-            echo 'This will run when the run was marked as unstable'
-        }
-        changed {
-            echo 'This will run when the state of the pipeline has changed'
+        stage('ssh publisher') {
+            steps {
+               sshPublisher(publishers: [sshPublisherDesc(configName: 'aws-docker-server', transfers: [sshTransfer(cleanRemote: false, excludes: '', execCommand: 'docker build -t edowon0623/devops_exam1 -f Dockerfile .', execTimeout: 120000, flatten: false, makeEmptyDirs: false, noDefaultExcludes: false, patternSeparator: '[, ]+', remoteDirectory: '.', remoteDirectorySDF: false, removePrefix: 'target', sourceFiles: 'target/devops_demo-0.1.war')], usePromotionTimestamp: false, useWorkspaceInPromotion: false, verbose: false)])
+            }
         }
     }
 }
